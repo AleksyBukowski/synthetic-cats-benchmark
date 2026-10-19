@@ -51,8 +51,8 @@ exists **only in training**. Validation and test are balanced, so the metrics ar
 30 test images per class is the most every breed can afford: Bombay, the smallest breed, still has 56 unused images.
 The extra Egyptian Mau images stay `unused` and are never trained on, so the imbalance is real.
 
-**Test set is locked.** Every choice (classifier, regularisation strength, and later prompts, filters and thresholds) is
-made on validation. Test metrics are computed and reported, but they never feed back into a decision.
+**Test set is locked.** No choice is made on the test set. The only tuned setting in this meeting, the regularisation
+strength `C`, is chosen on validation. Test metrics are computed and reported, but they never feed back into a decision.
 
 ## 2. Leakage check (automated)
 
@@ -65,7 +65,7 @@ made on validation. Test metrics are computed and reported, but they never feed 
 
 A second check, `check_added_sources`, runs each time a training set is built. Every oversampled or augmented
 observation must come from an Egyptian Mau **training** image, so no transformed copy of a validation or test image can
-enter training. Synthetic images will be checked the same way in later meetings.
+enter training.
 
 Both checks were tested with planted leaks. Moving a duplicate's twin into train and the duplicate into test is caught
 (`Abyssinian_122(train)~Abyssinian_172(test)`), and so is adding a test image as an augmentation source.
@@ -80,7 +80,9 @@ the same as every other breed, in every condition except the imbalanced control.
 | Imbalanced real | 505 real images (15 Mau). Nothing added. |
 | Oversampling | + 55 exact repeats of the 15 Mau training images |
 | Augmentation | + 55 transformed copies of the 15 Mau training images |
-| *Synthetic (Meetings 2–4)* | *+ 55 generated Egyptian Mau images* |
+
+As the assignment requires, this budget is fixed: any added-data condition, including synthetic data, adds exactly 55
+Egyptian Mau observations.
 
 The 15 source images are cycled in a seed-dependent order, so each is used 3 or 4 times. **Oversampling and augmentation
 use the same allocation for a given seed**; the only difference between them is the transform.
@@ -99,7 +101,7 @@ rotation ±15°, `ColorJitter(brightness 0.3, contrast 0.3, saturation 0.3, hue 
 * **Hyper-parameter choice:** `C ∈ {0.01, 0.03, 0.1, 0.3, 1, 3}`, chosen by **validation macro-F1**
   separately for every condition and seed (ties → smaller C).
 * **Why frozen features + logistic regression:** fast (the whole Meeting 1 run takes a few minutes, even on CPU),
-  deterministic, and strong enough for fine-grained breeds. End-to-end fine-tuning can come later if time allows.
+  deterministic, and strong enough for fine-grained breeds.
 
 ## 5. Metrics
 
@@ -115,8 +117,8 @@ rotation ±15°, `ColorJitter(brightness 0.3, contrast 0.3, saturation 0.3, hue 
 | Repeated runs | `RUN_SEEDS = [0, 1, 2, 3, 4]` (oversampling allocation, augmentation draws via `torch.manual_seed`) |
 
 Logistic regression (lbfgs) is deterministic, so the imbalanced condition has std = 0 across seeds: nothing in it is random.
-All constants are in [`src/catbench/config.py`](../../src/catbench/config.py). Rerunning the notebook reproduces the table below
-exactly.
+All constants are in [`src/catbench/config.py`](../../src/catbench/config.py). Rerunning the notebook with the default install
+reproduces the tables below exactly.
 
 ## 7. Results (5 seeds, mean ± std)
 
@@ -144,19 +146,36 @@ exactly.
 
 ### Observations
 
-1. **The imbalance creates a real problem.** With 15 training images, ResNet-18 recognises only 37% of test Egyptian Maus,
-   while the majority breeds reach 0.83–1.00 recall. Precision stays high (~0.92), so the classifier rarely *predicts*
-   Mau at all.
-2. **Mau is mostly confused with Bengal**, the other spotted breed (50% of Mau test images with the imbalanced ResNet-18).
-   This is the visual difference that synthetic images will need to show.
-3. **Both cheap fixes help, and neither harms the guardrail.** Oversampling gives the largest gain in recall
-   (+21 points on ResNet-18, +9 on EfficientNet-B0), and macro-F1 does not drop. Augmentation helps less on the test set.
-4. **The conclusion partly transfers across backbones.** EfficientNet-B0 starts from a stronger baseline (0.567),
-   so its gains are smaller, but the ranking is the same (imbalanced < augmentation < oversampling).
-5. **Validation and test disagree on the ranking of oversampling vs augmentation.** With only 20 validation and 30 test
-   Mau images, one image changes recall by 3–5 points. The differences between the two strong baselines are within this
-   noise. Meeting 5 therefore needs paired, per-image statistics (e.g. bootstrap confidence intervals or McNemar's test)
-   rather than comparing means alone.
+**How precise are these numbers?** There are only 30 Egyptian Mau test images, so one image changes Mau recall by
+3.3 points (5 points on validation, with 20 images). The "± std" above only measures variation between the 5 seeds, that
+is, which images were repeated or how they were augmented. It does **not** include the uncertainty that comes from having
+so few test images, which is much larger. No statistical tests were run, so a difference of a few test images is read
+here as "no clear difference".
 
-**Bar for later meetings:** synthetic data is useful only if it beats **oversampling** (the strongest real-data baseline) on Mau
-recall without lowering macro-F1.
+1. **The imbalanced baseline recognises Egyptian Mau poorly.** With 15 training images, ResNet-18 finds 11 of the 30 Mau
+   test images (recall 0.367), while every other breed reaches 0.83–1.00. It predicts "Egyptian Mau" only about 12 times in
+   the whole test set, and those predictions are almost always right (precision 0.917): the model is reluctant to choose
+   the minority class, rather than confusing other breeds with it. EfficientNet-B0 does better (17 of 30) but shows the
+   same gap. These runs cannot tell how much of this is caused by the small training count and how much by Mau simply
+   being a hard breed, because there is no run with 70 real Mau images to compare against.
+2. **Most mistakes on Egyptian Mau are "Bengal".** With the imbalanced ResNet-18, 15 of the 30 Mau test images are
+   predicted as Bengal, the other spotted breed. EfficientNet-B0 makes the same mistake: 12 of its 13 missed Mau images
+   are predicted as Bengal.
+3. **Oversampling shows the clearest gain.** On ResNet-18, Mau recall rises from 0.367 to 0.580: 16–19 of 30 images
+   found depending on the seed, instead of 11, so every seed is clearly above the baseline. The other gains are small:
+   augmentation on ResNet-18 finds 3–4 more images, and on EfficientNet-B0 oversampling finds 1–3 more and augmentation
+   1–2 more. These are within the few-image range described above, so for them we can only say "a possible improvement".
+4. **Oversampling and augmentation cannot be ranked against each other.** On the test set oversampling is ahead on both backbones,
+   while on validation augmentation is equal or ahead. The two disagree, and the differences are a few images either way.
+5. **No sign that either method harms overall quality.** Macro-F1 is the same or slightly higher than the imbalanced
+   baseline in every case (ResNet-18: 0.844 → 0.877 / 0.857; EfficientNet-B0: 0.862 → 0.863 / 0.866).
+
+### Summary
+
+* The real-image split is fixed in a manifest and passes the automated leakage check.
+* All three baselines use the same split, budget (55), classifier and metrics, and differ only in the added training data.
+* Egyptian Mau is the weakest class in the imbalanced baseline (recall 0.367 with ResNet-18, 0.567 with EfficientNet-B0),
+  and its errors are mostly "Bengal".
+* Oversampling clearly improves Mau recall with ResNet-18; the other improvements are a few images and not clearly
+  different from the baseline.
+* Macro-F1 did not drop in any condition.
