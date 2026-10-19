@@ -23,6 +23,34 @@ CPU (Meeting 1 takes a few minutes on CPU).
 If `pip` isn't available, install uv with its standalone installer (see the uv website), or use
 `python -m pip install --user uv` and then `python -m uv sync`.
 
+### Smaller install for computers without a GPU (optional)
+
+The default PyTorch build includes NVIDIA's CUDA libraries, which make it large. On a computer without an NVIDIA GPU, or
+with little disk space, you can install the CPU-only build of the same PyTorch version instead:
+
+```bash
+uv sync --no-default-groups --group cpu
+```
+
+| | Default (`uv sync`) | CPU-only |
+|---|---|---|
+| PyTorch download | ~2.5 GB | ~115 MB |
+| `.venv` on disk | ~4.6 GB | ~0.85 GB |
+| Uses an NVIDIA GPU | yes | no |
+
+Results match the GPU build up to floating-point rounding. Diffusion image generation (Meeting 2) needs a GPU, so do
+that part on a GPU machine.
+
+With the CPU-only build, add `--no-sync` to every `uv run` command, e.g. `uv run --no-sync jupyter lab`.
+Without it, `uv run` switches the environment back to the default GPU build. Selecting the `.venv` kernel in VS Code
+is not affected.
+
+To free more space after installing, delete uv's download cache (it is re-downloaded only if needed):
+
+```bash
+uv cache clean
+```
+
 ## Running
 
 Open a meeting notebook and select the **`.venv`** kernel (in VS Code: *Select Kernel → Python Environments → .venv*):
