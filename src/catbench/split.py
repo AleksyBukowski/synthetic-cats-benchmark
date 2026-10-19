@@ -4,7 +4,7 @@ import pandas as pd
 
 from .config import (BREEDS, MANIFEST_PATH, MINORITY, N_TEST, N_TRAIN_MAJORITY,
                      N_TRAIN_MINORITY, N_VAL, NEAR_DUP_BITS, SPLIT_SEED)
-from .data import list_cat_images
+from .data import download, list_cat_images
 from .leakage import compute_hashes, hamming
 
 
@@ -48,7 +48,11 @@ def make_manifest(seed: int = SPLIT_SEED) -> pd.DataFrame:
 
 
 def get_manifest(create_if_missing: bool = True) -> pd.DataFrame:
-    """Load the saved manifest. It is created only once; delete the file to re-split on purpose."""
+    """Load the saved manifest. It is created only once; delete the file to re-split on purpose.
+
+    The images themselves are not in Git, so on a fresh clone this also downloads the dataset.
+    """
+    download()
     if not MANIFEST_PATH.exists():
         if not create_if_missing:
             raise FileNotFoundError(MANIFEST_PATH)
