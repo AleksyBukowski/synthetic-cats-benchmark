@@ -1,0 +1,10 @@
+breed,train,val,test,unused,excluded_duplicate
+Abyssinian,70,20,30,72,6
+Bengal,70,20,30,80,0
+Birman,70,20,30,79,1
+Bombay,70,20,30,56,8
+Egyptian Mau,15,20,30,123,2
+Ragdoll,70,20,30,79,1
+Russian Blue,70,20,30,80,0
+Siamese,70,20,30,79,0
+Total,505,160,240,648,18

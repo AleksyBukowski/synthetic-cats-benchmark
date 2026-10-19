@@ -1,0 +1,7 @@
+check,passed,detail
+image IDs unique (one role per image),True,
+only known roles,True,
+train counts (70 majority / 15 minority),True,
+validation balanced (20 per class),True,
+test balanced (30 per class),True,
+no near-duplicates across splits (dHash <= 6 bits),True,
