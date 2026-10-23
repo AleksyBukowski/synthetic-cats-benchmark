@@ -1,55 +1,59 @@
 [project]
-name = "catbench"
+name = "synthetic-data-course"
 version = "0.1.0"
-description = "Synthetic data generation with diffusion models: Oxford-IIIT Pet cat-breed benchmark"
-requires-python = ">=3.12,<3.13"
+description = "Starter repository for Synthetic Data Generation with Diffusion Models"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
 dependencies = [
-    "numpy",
-    "pandas",
-    "scikit-learn",
-    "matplotlib",
-    "pillow",
-    "tqdm",
-    "tabulate",
-    "jupyterlab",
-    "ipykernel",
+    "accelerate>=1.10,<2",
+    "diffusers>=0.40,<0.41",
+    "matplotlib>=3.10,<4",
+    "numpy>=2.2,<3",
+    "pandas>=2.2,<4",
+    "pillow>=11,<13",
+    "safetensors>=0.6,<1",
+    "torch>=2.8,<3",
+    "torchvision>=0.23,<1",
+    "transformers>=4.55,<6",
 ]
 
-# PyTorch comes in two interchangeable builds (pick one):
-#   uv sync                                   -> "gpu" (default): CUDA 12.8 build, ~2.5 GB, also runs on CPU
-#   uv sync --no-default-groups --group cpu   -> "cpu": CPU-only build, much smaller download
+[project.scripts]
+synth-data = "synthdata.data:main"
+synth-train = "synthdata.train:main"
+synth-generate = "synthdata.generate:main"
+synth-test = "synthdata.test:main"
+
 [dependency-groups]
-gpu = ["torch>=2.7", "torchvision>=0.22"]
-cpu = ["torch==2.11.*", "torchvision==0.26.*"]   # same versions as the gpu build
+dev = [
+    "ipykernel>=7.4.0",
+    "pytest>=8.4,<10",
+    "ruff>=0.12,<1",
+]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/catbench"]
+packages = ["src/synthdata"]
 
-[tool.uv]
-default-groups = ["gpu"]
-conflicts = [[{ group = "gpu" }, { group = "cpu" }]]
-
-# On macOS both groups use the normal PyPI build (there is no CUDA there).
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cu128", group = "gpu", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
-    { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
-]
-torchvision = [
-    { index = "pytorch-cu128", group = "gpu", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
-    { index = "pytorch-cpu", group = "cpu", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
-]
-
+# CUDA 12.8 wheels on Linux and Windows; macOS uses the default wheels (MPS).
 [[tool.uv.index]]
 name = "pytorch-cu128"
 url = "https://download.pytorch.org/whl/cu128"
 explicit = true
 
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu128", marker = "sys_platform != 'darwin'" }]
+torchvision = [{ index = "pytorch-cu128", marker = "sys_platform != 'darwin'" }]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
