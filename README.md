@@ -1,6 +1,6 @@
 # Synthetic Data Generation with Diffusion Models
 
-Based on the starter repository for the course
+Based on the starter repository for the course:
 [Synthetic Data Generation with Diffusion Models](https://patrykbart.github.io/teaching/synthetic-data-generation-with-diffusion-models/).
 The main research question about the data at hand:
 
