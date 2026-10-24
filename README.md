@@ -1,15 +1,14 @@
 # Synthetic Data Generation with Diffusion Models
 
-Starter repository for the course
+Based on the starter repository for the course
 [Synthetic Data Generation with Diffusion Models](https://patrykbart.github.io/teaching/synthetic-data-generation-with-diffusion-models/).
-Every student answers the same question on the same data:
+The main research question about the data at hand:
 
 > Can images made by diffusion models improve recognition of Egyptian Mau, an
 > underrepresented cat breed, without harming the other seven breeds?
 
-The repository already downloads the data, fine-tunes the classifier, and runs
-the diffusion models. Your work is to run controlled experiments, look at the
-images, and explain what changes the classifier and why.
+## The results and findings
+**The results and findings for each meeting are stored in the `meetings` folder.**
 
 ## Setup
 
@@ -24,40 +23,6 @@ uv run pytest
 
 `synth-data` downloads Oxford-IIIT Pet (about 800 MB) into `data/` and checks
 the course split, and `pytest` checks the starter code.
-
-### Hardware
-
-Measured on an RTX 5070 Ti laptop GPU (12 GB); slower GPUs take
-proportionally longer.
-
-| Task                                  |  Time | GPU memory | First download |
-| ------------------------------------- | ----: | ---------: | -------------: |
-| Train one run (5 seeds)               | 1 min |          – |          21 MB |
-| Text-to-image, SD 1.5, 110 images     | 3 min |     3.2 GB |     about 3 GB |
-| Text-to-image, SDXL-Turbo, 110 images | 1 min |     7.7 GB |     about 7 GB |
-| img2img (strength 0.5), 110 images    | 2 min |     3.2 GB |  (uses SD 1.5) |
-| IP-Adapter, 110 images                | 3 min |     4.4 GB |   + about 3 GB |
-| Inpainting or outpainting, 110 images | 3 min |     3.2 GB |     about 3 GB |
-
-Models download into `~/.cache/huggingface` the first time you use them. Add
-`--low-vram` to `synth-generate` on GPUs with less than 6 GB. Training also runs
-on a CPU, only slower; generating images on a CPU is impractically slow.
-
-Without a suitable GPU, use the faculty computers or a free cloud GPU such as
-Google Colab or Kaggle. In a notebook cell there, run:
-
-```text
-!git clone <your-repository-url> project
-%cd project
-!pip install -e .
-!synth-data
-```
-
-and prefix every later command with `!`, for example
-`!synth-train --name m1-real --method real`. Commit and push your results from
-the notebook, or download them, before the session ends: its disk is erased.
-Download also the `model.pt` files of the runs you will test; they are not
-committed.
 
 ## The Fixed Experiment
 
@@ -265,9 +230,3 @@ recreate every image.
   this.
 - Choose on the validation results and write the choice down before testing.
   Test only the chosen runs, and do not revise a choice after its test result.
-
-## Coding Agent
-
-If you already use Codex or Claude Code, nothing else is required. Otherwise,
-install [Antigravity CLI](https://antigravity.google/docs/cli/install/). You
-must be able to explain every command, setting, and result you submit.
