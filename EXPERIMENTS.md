@@ -108,14 +108,144 @@ effect is still a result: say so and say why.
 
 ## Meeting 2 — Text-to-image generation
 
-- **Question:**
-- **Setting changed in each pool (one at a time):**
+- **Full analysis:** [`meetings/meeting2.ipynb`](meetings/meeting2.ipynb).
+- **Question:** Which text-to-image generation settings give useful Egyptian Mau
+  training images?
+- **Setting changed in each pool (one at a time):** the base pool `m2-base` uses
+  Stable Diffusion 1.5, one prompt, 30 steps, guidance 7.5, the DPM scheduler and
+  seed 1000. Each other pool changes one of these:
+
+  | Pool | Changed | Value (base) |
+  |---|---|---|
+  | `m2-guidance-2` | guidance | 2 (7.5) |
+  | `m2-guidance-15` | guidance | 15 (7.5) |
+  | `m2-steps-5` | steps | 5 (30) |
+  | `m2-steps-10` | steps | 10 (30) |
+  | `m2-prompts-varied` | prompt | 4 varied prompts (1) |
+
+  Base prompt: *a photo of an Egyptian Mau cat, silver coat with random dark
+  spots, green eyes, at home*. It names the breed's spotted (not striped) silver
+  coat and green eyes, and asks for an ordinary pet photo. The four varied prompts
+  keep the breed description but change the scene and pose (lying on a sofa,
+  sitting in a garden, walking on the floor, playing with a toy) and use both
+  silver and bronze coats.
 - **Commands:**
-- **Contact sheets:** (good and bad images, with the failure types you name)
-- **Results on validation:** (table and plot)
-- **What I see:**
-- **Pool I take forward, and why:**
-- **Its test result, compared with the baselines:**
+
+  ```bash
+  P="a photo of an Egyptian Mau cat, silver coat with random dark spots, green eyes, at home"
+  uv run synth-generate --name m2-base --prompt "$P"
+  uv run synth-generate --name m2-guidance-2 --prompt "$P" --guidance 2
+  uv run synth-generate --name m2-guidance-15 --prompt "$P" --guidance 15
+  uv run synth-generate --name m2-steps-5 --prompt "$P" --steps 5
+  uv run synth-generate --name m2-steps-10 --prompt "$P" --steps 10
+  uv run synth-generate --name m2-prompts-varied \
+    --prompt "a photo of an Egyptian Mau cat lying on a sofa, silver coat with random dark spots, green eyes" \
+    --prompt "a photo of an Egyptian Mau cat sitting in a garden, bronze coat with random dark spots, green eyes" \
+    --prompt "a full-body photo of an Egyptian Mau cat walking on the floor, silver coat with random dark spots" \
+    --prompt "a photo of an Egyptian Mau cat playing with a toy indoors, bronze coat with random dark spots"
+  uv run synth-train --name m2-base --method synthetic --pool m2-base --tag changed=base --tag guidance=7.5 --tag steps=30 --tag prompt=single
+  uv run synth-train --name m2-guidance-2 --method synthetic --pool m2-guidance-2 --tag changed=guidance --tag guidance=2 --tag steps=30 --tag prompt=single
+  uv run synth-train --name m2-guidance-15 --method synthetic --pool m2-guidance-15 --tag changed=guidance --tag guidance=15 --tag steps=30 --tag prompt=single
+  uv run synth-train --name m2-steps-5 --method synthetic --pool m2-steps-5 --tag changed=steps --tag guidance=7.5 --tag steps=5 --tag prompt=single
+  uv run synth-train --name m2-steps-10 --method synthetic --pool m2-steps-10 --tag changed=steps --tag guidance=7.5 --tag steps=10 --tag prompt=single
+  uv run synth-train --name m2-prompts-varied --method synthetic --pool m2-prompts-varied --tag changed=prompt --tag guidance=7.5 --tag steps=30 --tag prompt=varied
+  uv run synth-test --run m2-prompts-varied
+  ```
+
+- **Contact sheets:** [base](pools/m2-base/contact-sheet.jpg),
+  [guidance 2](pools/m2-guidance-2/contact-sheet.jpg),
+  [guidance 15](pools/m2-guidance-15/contact-sheet.jpg),
+  [steps 5](pools/m2-steps-5/contact-sheet.jpg),
+  [steps 10](pools/m2-steps-10/contact-sheet.jpg),
+  [varied prompts](pools/m2-prompts-varied/contact-sheet.jpg). Every pool has
+  110 attempts. One attempt of `m2-guidance-2` was blocked by the safety checker
+  and is kept in the manifest (109 usable). Failure types found (image indices on
+  the contact sheets):
+
+  | Failure type | Examples |
+  |---|---|
+  | Stripes instead of spots (a tabby, not an Egyptian Mau) — about a third of the base sheet | base #5, #7, #8, #14, #20–#22 |
+  | Wrong spot pattern: large blotches, dense leopard or dalmatian spots | base #1, #3, #19 |
+  | Impossible anatomy or artefacts: stretched body, orange blob, two cats merged, cat fused with a toy | base #11, #13; guidance 2 #4; varied #3, #11 |
+  | Exaggerated features: huge pink ears, neon-green eyes, thin Oriental head (strongest with guidance 15) | guidance 15 #0, #6, #21 |
+  | Generic tabby, not recognisably an Egyptian Mau (guidance 2) | guidance 2 #6, #12, #16, #18 |
+  | Text or watermark | guidance 2 #17, #23 |
+  | Soft, low-detail images (5 steps) | steps 5 #7, #13, #20 |
+  | Repeated framing: front-facing head close-ups, always silver, always indoors | base #4, #5, #14, #16, #17, #20–#22 |
+  | Bengal-like cats: bronze coats with rosette-like spots | varied #19, #23 |
+
+  No painting or cartoon images appeared, because the default negative prompt
+  works. Examples of each type next to convincing images:
+
+  ![Failure types](evidence/m2-failures.jpg)
+
+  The same seeds under every setting (one row per pool):
+  [`evidence/m2-same-seeds.jpg`](evidence/m2-same-seeds.jpg).
+- **Results on validation** (mean of 5 seeds, with the seed range; every seed is
+  in [`evidence/m2-validation.csv`](evidence/m2-validation.csv)):
+
+  | Run | Mau recall | Macro-F1 | Bengal recall | Bengal → Mau (of 100) |
+  |---|---|---|---|---|
+  | m1-real | 0.49 (0.40–0.60) | 0.857 | 0.85 | 1 |
+  | m1-oversample | 0.67 (0.60–0.75) | 0.894 | 0.83 | 6 |
+  | m1-augment | 0.73 (0.70–0.85) | 0.886 | 0.75 | 12 |
+  | m2-base | 0.79 (0.75–0.85) | 0.902 | 0.83 | 4 |
+  | m2-guidance-2 | 0.81 (0.80–0.85) | 0.894 | 0.74 | 12 |
+  | m2-guidance-15 | 0.76 (0.70–0.80) | 0.895 | 0.83 | 5 |
+  | m2-steps-5 | 0.80 (0.75–0.85) | 0.901 | 0.82 | 5 |
+  | m2-steps-10 | 0.80 (0.75–0.85) | 0.907 | 0.84 | 5 |
+  | m2-prompts-varied | 0.79 (0.75–0.90) | 0.902 | 0.84 | 4 |
+
+  ![All pools next to the baselines](evidence/m2-validation.png)
+
+  One plot per comparison: [guidance](evidence/m2-guidance.png),
+  [steps](evidence/m2-steps.png), [prompt](evidence/m2-prompt.png).
+- **What I see:** every synthetic pool beats both Meeting 1 baselines on average
+  (0.76–0.81 against 0.67 and 0.73). Against oversampling this is clear: 29 of the
+  30 pool seeds are at or above its best seed. Against augmentation the gap is
+  about one photo and the seed ranges overlap, so it is not clearly different.
+  Unlike augmentation, the synthetic images mostly do not cost Bengal (Bengal
+  recall 0.82–0.84, 4–5 Bengals called Egyptian Mau), and macro-F1 is as high as
+  or higher than with either fix. The generation settings change the images much
+  more than the classifier: all pools are within one photo of each other. Guidance
+  2 has the highest mean but is the exception on Bengal (0.74, 12 Bengals called
+  Egyptian Mau). Its generic-tabby images seem to make the classifier call more
+  spotted or striped cats Egyptian Mau. Guidance 15, with exaggerated images, has
+  the lowest mean (0.76). 5, 10 and 30 steps give the same recall, and 5 steps
+  generates in a quarter of the time. Four varied prompts give the same recall as
+  one prompt, with more varied images.
+- **Pool I take forward, and why (decided on validation, before testing):**
+  **`m2-prompts-varied`**. On validation all six pools are within 0.05 (one photo)
+  of each other in Egyptian Mau recall, so no pool wins on the main metric alone.
+  `m2-prompts-varied` ties the best pools (0.79 mean recall, 0.902 macro-F1) and
+  has the smallest cost to Bengal (Bengal recall 0.84, 4 of 100 Bengal photos
+  called Egyptian Mau). Its contact sheet is the only one that removes the
+  "repeated framing" failure (varied poses, scenes and coat colours). Guidance 2
+  has the highest mean (0.81), but only by a third of a photo, and it gets there
+  by calling more Bengals Egyptian Mau (Bengal recall 0.74) with images that are
+  often generic tabbies, so it is not chosen.
+- **Its test result, compared with the baselines** (30 photos per breed; one
+  Egyptian Mau photo = 0.033; every seed in [`evidence/m2-test.csv`](evidence/m2-test.csv)):
+
+  | Run | Mau recall (seeds) | Mean | Macro-F1 | Bengal recall | Bengal → Mau (of 150) |
+  |---|---|---|---|---|---|
+  | m1-real | 0.433 0.533 0.500 0.433 0.633 | 0.507 | 0.857 | 0.93 | 0 |
+  | m1-oversample | 0.700 0.667 0.733 0.700 0.700 | 0.700 | 0.880 | 0.90 | 1 |
+  | m1-augment | 0.733 0.700 0.733 0.733 0.733 | 0.727 | 0.884 | 0.86 | 7 |
+  | **m2-prompts-varied** | 0.733 0.733 0.733 0.700 0.733 | **0.727** | **0.887** | **0.92** | **0** |
+
+  ![Test: chosen pool and baselines](evidence/m2-test.png)
+
+  On the test photos `m2-prompts-varied` recognises Egyptian Mau exactly as well
+  as augmentation (0.727, same range) and less than one photo better than
+  oversampling (0.700), so it is **not better** than the classical fixes on the
+  main metric. Its validation lead over augmentation (0.79 vs 0.73) did not hold.
+  That gap was about one photo, within the seed spread. Where it does differ is
+  the other breeds: no Bengal is called Egyptian Mau (7 with augmentation), Bengal
+  recall stays at 0.92 (0.86 with augmentation), and macro-F1 is the highest of
+  the four (0.887). So it gives the same Egyptian Mau recall as augmentation with
+  less harm to Bengal. The Egyptian Mau photos it still misses are mostly called
+  Bengal (24 of 150) and Russian Blue (12).
 
 ## Meeting 3 — Generation from training photos
 

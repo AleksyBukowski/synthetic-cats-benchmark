@@ -1,0 +1,5 @@
+run,egyptian_mau_recall | 0,egyptian_mau_recall | 1,egyptian_mau_recall | 2,egyptian_mau_recall | 3,egyptian_mau_recall | 4,egyptian_mau_recall | mean,egyptian_mau_recall | std,macro_f1 | 0,macro_f1 | 1,macro_f1 | 2,macro_f1 | 3,macro_f1 | 4,macro_f1 | mean,macro_f1 | std
+m1-real,0.433,0.533,0.5,0.433,0.633,0.507,0.083,0.846,0.858,0.865,0.846,0.868,0.857,0.01
+m1-oversample,0.7,0.667,0.733,0.7,0.7,0.7,0.024,0.875,0.877,0.891,0.883,0.874,0.88,0.007
+m1-augment,0.733,0.7,0.733,0.733,0.733,0.727,0.015,0.883,0.878,0.882,0.899,0.878,0.884,0.009
+m2-prompts-varied,0.733,0.733,0.733,0.7,0.733,0.727,0.015,0.9,0.879,0.891,0.887,0.879,0.887,0.009
