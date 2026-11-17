@@ -250,12 +250,129 @@ effect is still a result: say so and say why.
 ## Meeting 3 — Generation from training photos
 
 - **Question:** How close to the real photos should the synthetic images be?
-- **img2img strength values and IP-Adapter scale values tried:**
+- **Full analysis:** [`meetings/meeting3.ipynb`](meetings/meeting3.ipynb).
+- **img2img strength values and IP-Adapter scale values tried:** strength 0.3,
+  0.5, 0.7, 0.9 and IP-Adapter scale 0.3, 0.5, 0.7, 1.0. Both sweeps use the
+  Meeting 2 base prompt (*a photo of an Egyptian Mau cat, silver coat with random
+  dark spots, green eyes, at home*) and all 15 training photos in turn. The four
+  prompts of `m2-prompts-varied` describe specific scenes and coats, which would
+  contradict the source photo (img2img keeps its pose and background), so the
+  breed-only base prompt is used instead.
 - **Commands:**
-- **Contact sheets:**
-- **Results on validation:**
-- **What I see:**
-- **Best run of each mode, and its test result:**
+
+  ```bash
+  P="a photo of an Egyptian Mau cat, silver coat with random dark spots, green eyes, at home"
+  for s in 0.3 0.5 0.7 0.9; do
+    uv run synth-generate --name m3-strength-$s --mode img2img --strength $s --prompt "$P"
+    uv run synth-train --name m3-strength-$s --method synthetic --pool m3-strength-$s --tag mode=img2img --tag strength=$s
+  done
+  for s in 0.3 0.5 0.7 1.0; do
+    uv run synth-generate --name m3-ip-$s --mode ip-adapter --ip-adapter-scale $s --prompt "$P"
+    uv run synth-train --name m3-ip-$s --method synthetic --pool m3-ip-$s --tag mode=ip-adapter --tag scale=$s
+  done
+  uv run synth-test --run m3-strength-0.7
+  uv run synth-test --run m3-ip-0.3
+  ```
+
+- **Contact sheets** (every image next to its source photo):
+  img2img [0.3](pools/m3-strength-0.3/contact-sheet.jpg),
+  [0.5](pools/m3-strength-0.5/contact-sheet.jpg),
+  [0.7](pools/m3-strength-0.7/contact-sheet.jpg),
+  [0.9](pools/m3-strength-0.9/contact-sheet.jpg); IP-Adapter
+  [0.3](pools/m3-ip-0.3/contact-sheet.jpg),
+  [0.5](pools/m3-ip-0.5/contact-sheet.jpg),
+  [0.7](pools/m3-ip-0.7/contact-sheet.jpg),
+  [1.0](pools/m3-ip-1.0/contact-sheet.jpg). The same three training photos
+  under every setting:
+
+  ![Same source photos in both sweeps](evidence/m3-examples.jpg)
+
+  - **img2img 0.3:** near copies of the photo. Even the photographer's signature
+    of Egyptian_Mau_124 ("©Chanan") is copied (#5, #20).
+  - **img2img 0.5:** same pose and background, cat redrawn with larger, sharper
+    spots, sometimes leopard-like blotches (#14, #21). The signature is still
+    there as a scribble.
+  - **img2img 0.7:** rough layout and colours of the photo, but the cat is redrawn
+    in Stable Diffusion's style. Spots partly become stripes or blotches, the ears
+    grow, and bronze cats become silver. The signature disappears.
+  - **img2img 0.9:** new images like the Meeting 2 base pool (close-ups, big ears,
+    stripes); only the background tone of the photo remains.
+  - **IP-Adapter 0.3:** new poses and scenes with a clearly spotted coat. The
+    source's colour comes through only sometimes.
+  - **IP-Adapter 0.5–1.0:** the photo's backdrop colours, lighting and even the
+    scene are copied (the fence of Egyptian_Mau_134), with denser
+    dalmatian-like spots and signature-like marks. At 1.0 the images degrade into
+    over-sharpened, noisy textures. A few attempts were safety-blocked (1 at 0.7,
+    3 at 1.0).
+- **Results on validation** (mean of 5 seeds with the seed range; every seed in
+  [`evidence/m3-validation.csv`](evidence/m3-validation.csv)):
+
+  | Run | Mau recall | Macro-F1 | Bengal recall | Bengal → Mau (of 100) |
+  |---|---|---|---|---|
+  | m1-oversample | 0.67 (0.60–0.75) | 0.894 | 0.83 | 6 |
+  | m1-augment | 0.73 (0.70–0.85) | 0.886 | 0.75 | 12 |
+  | m2-prompts-varied | 0.79 (0.75–0.90) | 0.902 | 0.84 | 4 |
+  | m3-strength-0.3 | 0.74 (0.65–0.80) | 0.893 | 0.81 | 7 |
+  | m3-strength-0.5 | 0.77 (0.65–0.85) | 0.903 | 0.82 | 6 |
+  | m3-strength-0.7 | 0.80 (0.75–0.85) | 0.906 | 0.82 | 5 |
+  | m3-strength-0.9 | 0.80 (0.75–0.85) | 0.905 | 0.84 | 5 |
+  | m3-ip-0.3 | 0.75 (0.65–0.80) | 0.895 | 0.84 | 4 |
+  | m3-ip-0.5 | 0.71 (0.65–0.80) | 0.894 | 0.87 | 2 |
+  | m3-ip-0.7 | 0.72 (0.65–0.80) | 0.893 | 0.86 | 2 |
+  | m3-ip-1.0 | 0.72 (0.65–0.80) | 0.890 | 0.84 | 4 |
+
+  ![img2img sweep](evidence/m3-img2img.png)
+  ![IP-Adapter sweep](evidence/m3-ip-adapter.png)
+
+- **What I see:** in img2img, the further from the photo the better. Egyptian
+  Mau recall rises from 0.74 (strength 0.3) to 0.77 (0.5) and 0.80 (0.7 and 0.9).
+  Each step alone is within the seed spread, but the trend runs one way across
+  the sweep. The near copies at 0.3 do about as well as augmentation, which they
+  resemble. In IP-Adapter the weakest influence of the photo is best: 0.75 at
+  scale 0.3, then 0.71–0.72. Models trained on IP-Adapter pools predict Egyptian
+  Mau less often, which keeps Bengal safe but misses more Egyptian Maus. The best
+  img2img pools are level with the Meeting 2 pool (0.80 vs 0.79), and no
+  IP-Adapter pool reaches it.
+- **How close to the real photos should the synthetic images be?** Not very
+  close. Near copies (img2img 0.3) add little that the 15 photos and augmentation
+  do not already give: the same pose, background and even the photographer's
+  signature. They score like augmentation. Images that keep only the rough layout
+  and colours of a photo and redraw the cat (img2img 0.7), or new images (0.9),
+  help most. With IP-Adapter, a strong reference copies the photo's *style*
+  (studio backdrops, lighting, signature-like marks) and degrades the images
+  instead of adding variety, while the weakest reference (new poses and scenes,
+  spotted coat) works best. The useful part of the photos is the breed's
+  appearance, not their pose, background or style.
+- **Best run of each mode (chosen on validation, before testing):**
+  **img2img: `m3-strength-0.7`.** It ties with strength 0.9 (both 0.80 mean
+  Egyptian Mau recall, seed range 0.75–0.85, macro-F1 0.906 vs 0.905), so the
+  contact sheets decide. Strength 0.7 still uses the training photo (rough
+  layout and colours) while redrawing the cat, which is the point of this mode,
+  whereas 0.9 hardly differs from the Meeting 2 text-only images. It is also
+  cheaper (21 instead of 27 denoising steps). **IP-Adapter: `m3-ip-0.3`**, the
+  best of its sweep (0.75 against 0.71–0.72) and the least degraded images.
+- **Test results** (30 photos per breed, one Egyptian Mau photo = 0.033; every
+  seed in [`evidence/m3-test.csv`](evidence/m3-test.csv)):
+
+  | Run | Mau recall (seeds) | Mean | Macro-F1 | Bengal recall | Bengal → Mau (of 150) |
+  |---|---|---|---|---|---|
+  | m1-real | 0.433 0.533 0.500 0.433 0.633 | 0.507 | 0.857 | 0.93 | 0 |
+  | m1-oversample | 0.700 0.667 0.733 0.700 0.700 | 0.700 | 0.880 | 0.90 | 1 |
+  | m1-augment | 0.733 0.700 0.733 0.733 0.733 | 0.727 | 0.884 | 0.86 | 7 |
+  | m2-prompts-varied | 0.733 0.733 0.733 0.700 0.733 | 0.727 | 0.887 | 0.92 | 0 |
+  | **m3-strength-0.7** | 0.767 0.700 0.767 0.700 0.767 | **0.740** | 0.885 | 0.89 | 3 |
+  | **m3-ip-0.3** | 0.767 0.767 0.733 0.700 0.767 | **0.747** | 0.889 | 0.91 | 0 |
+
+  ![Test: chosen runs of Meetings 1–3](evidence/m3-test.png)
+
+  On the test photos both chosen runs are marginally above augmentation and the
+  Meeting 2 pool (0.740 and 0.747 against 0.727). That is less than one test
+  photo, with overlapping seed ranges, so the photo-based images are not clearly
+  better than augmentation or text-to-image. The validation ranking did not hold
+  either: `m3-ip-0.3` was below the Meeting 2 pool on validation and is
+  marginally the highest on test. Neither run costs Bengal much (0 and 3 Bengals
+  called Egyptian Mau, against 7 with augmentation), and macro-F1 (0.889, 0.885)
+  is level with Meeting 2 and augmentation.
 
 ## Meeting 4 — Editing training photos
 
